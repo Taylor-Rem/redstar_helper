@@ -1,3 +1,4 @@
+import logging
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -17,19 +18,21 @@ import re, time
 
 from big_panda import url_columns
 
+logging.basicConfig(level=logging.INFO)
+
 
 class redstar_helper:
-    latest_month_table_xpath = "/html/body/table[2]/tbody/tr[4]/td/table/tbody/tr/td/table[last()-4]/tbody/tr[2]/td/table/tbody"
-
     def __init__(self):
-        options = Options()
-        options.add_experimental_option("detach", True)
-        self.driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()), options=options
-        )
+        self.driver = self.setup_webdriver()
         self.wait = WebDriverWait(self.driver, 10)
         self.primary_tab = None
-        self.values = []
+
+    def setup_webdriver(self):
+        options = Options()
+        options.add_experimental_option("detach", True)
+        return webdriver.Chrome(
+            service=Service(ChromeDriverManager().install()), options=options
+        )
 
     def login(self, username, password):
         try:
@@ -41,12 +44,43 @@ class redstar_helper:
         except NoSuchElementException:
             pass
 
-    def scrape_table(self, column):
+    def redstar_status(self):
+        try:
+            element = self.driver.find_element(
+                By.XPATH,
+                '//font[@color="red"]/ancestor::td[@class="td1" or @class="td2"]',
+            )
+            return True
+        except NoSuchElementException:
+            return False
+
+    def choose_table(self, num):
+        return f"/html/body/table[2]/tbody/tr[4]/td/table/tbody/tr/td/table[last(){num}]/tbody/tr[2]/td/table/tbody"
+
+    def scrape_table(self, URL):
         self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-        table = self.driver.find_element(By.XPATH, self.latest_month_table_xpath)
-        soup = BeautifulSoup(table.get_attribute("innerHTML"), "html.parser")
-        rows = soup.find_all("tr")
+        table, rows = self.define_table(-4)
+        self.loop_through_table(table, rows, URL, -4)
+        if self.redstar_status():
+            table, rows = self.define_table(-5)
+            self.loop_through_table(table, rows, URL, -5)
+
+    def define_table(self, table_num):
+        table_elements = self.driver.find_elements(
+            By.XPATH, self.choose_table(table_num)
+        )
+        table = table_elements[0] if table_elements else None
+        if table:
+            soup = BeautifulSoup(table.get_attribute("innerHTML"), "html.parser")
+            rows = soup.find_all("tr")
+            return table, rows
+        else:
+            return None, None
+
+    def loop_through_table(self, table, rows, URL, table_num):
         for row in rows:
+            if not self.redstar_status():
+                break
             if row.find("td", class_="th3"):
                 continue
             cells = row.find_all("td")
@@ -65,12 +99,12 @@ class redstar_helper:
                 if link:
                     link.click()
                     self.auto_allocate()
-                    self.driver.get(column)
+                    self.driver.get(URL)
                     self.wait.until(
                         EC.presence_of_element_located((By.TAG_NAME, "body"))
                     )
                     table = self.driver.find_element(
-                        By.XPATH, self.latest_month_table_xpath
+                        By.XPATH, self.choose_table(table_num)
                     )
 
     def auto_allocate(self):
@@ -81,23 +115,15 @@ class redstar_helper:
             auto_allocate_btn.click()
             update_payment_btn.click()
         except NoSuchElementException:
-            print("No Auto Allocate found on page")
             pass
 
     def open_redstars(self):
-        for column in url_columns:
-            self.driver.get(column)
+        for URL in url_columns:
+            self.driver.get(URL)
             self.login(username, password)
-            self.scrape_table(column)
+            if self.redstar_status():
+                self.scrape_table(URL)
         self.driver.quit()
-
-    # for i in range(2):
-    # self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-    # column = url_columns[1]
-    # self.driver.get(column)
-    # self.login(username, password)
-    # self.scrape_table(column)
-    # self.driver.quit()
 
 
 if __name__ == "__main__":
