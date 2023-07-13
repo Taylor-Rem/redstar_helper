@@ -58,7 +58,6 @@ class redstar_helper:
         return f"/html/body/table[2]/tbody/tr[4]/td/table/tbody/tr/td/table[last(){num}]/tbody/tr[2]/td/table/tbody"
 
     def scrape_table(self, URL):
-        self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         table, rows = self.define_table(-4)
         self.loop_through_table(table, rows, URL, -4)
         if self.redstar_status():
@@ -99,22 +98,19 @@ class redstar_helper:
                 if link:
                     link.click()
                     self.auto_allocate()
-                    self.driver.get(URL)
-                    self.wait.until(
-                        EC.presence_of_element_located((By.TAG_NAME, "body"))
-                    )
+                    self.wait
                     table = self.driver.find_element(
                         By.XPATH, self.choose_table(table_num)
                     )
 
     def auto_allocate(self):
-        self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         try:
             auto_allocate_btn = self.driver.find_element(By.NAME, "realloc_trid")
             update_payment_btn = self.driver.find_element(By.NAME, "update")
             auto_allocate_btn.click()
             update_payment_btn.click()
         except NoSuchElementException:
+            self.driver.back()
             pass
 
     def open_redstars(self):
