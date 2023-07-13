@@ -16,7 +16,7 @@ from config import username, password
 
 import re, time
 
-from big_panda import url_columns
+from csv_reader import url_columns
 
 logging.basicConfig(level=logging.INFO)
 
@@ -120,9 +120,3 @@ class redstar_helper:
             if self.redstar_status():
                 self.scrape_table(URL)
         self.driver.quit()
-
-
-if __name__ == "__main__":
-    helper = redstar_helper()
-    helper.driver.maximize_window()
-    helper.open_redstars()
