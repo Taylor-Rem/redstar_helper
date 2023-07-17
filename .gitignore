@@ -3,3 +3,5 @@ config.py
 __pycache__
 .vscode
 2023
+build
+main.spec
